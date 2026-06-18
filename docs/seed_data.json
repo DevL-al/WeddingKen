@@ -1,0 +1,43 @@
+{
+  "packages": [
+    {
+      "name": "Paket Silver",
+      "description": "Paket wedding sederhana untuk acara intimate dan keluarga dekat.",
+      "price": 15000000,
+      "guests": 200,
+      "imageUrl": "https://images.unsplash.com/photo-1519741497674-611481863552?w=1200",
+      "features": ["Dekorasi pelaminan", "MUA pengantin", "Dokumentasi foto", "MC", "Sound system"],
+      "active": true
+    },
+    {
+      "name": "Paket Gold",
+      "description": "Paket lengkap dengan dekorasi premium, dokumentasi, dan koordinasi hari-H.",
+      "price": 28000000,
+      "guests": 500,
+      "imageUrl": "https://images.unsplash.com/photo-1519225421980-715cb0215aed?w=1200",
+      "features": ["Dekorasi premium", "MUA pengantin", "Foto dan video", "MC", "Sound system", "Koordinator acara"],
+      "active": true
+    },
+    {
+      "name": "Paket Platinum",
+      "description": "Paket wedding besar dengan vendor lengkap dan konsep acara custom.",
+      "price": 45000000,
+      "guests": 800,
+      "imageUrl": "https://images.unsplash.com/photo-1523438885200-e635ba2c371e?w=1200",
+      "features": ["Dekorasi luxury", "MUA premium", "Foto cinematic", "Video highlight", "Entertainment", "Rundown profesional", "Koordinator full team"],
+      "active": true
+    }
+  ],
+  "galleries": [
+    {
+      "title": "Dekorasi Garden",
+      "imageUrl": "https://images.unsplash.com/photo-1464366400600-7168b8af9bc3?w=1200",
+      "caption": "Konsep outdoor garden wedding."
+    },
+    {
+      "title": "Pelaminan Elegant",
+      "imageUrl": "https://images.unsplash.com/photo-1520854221256-17451cc331bf?w=1200",
+      "caption": "Dekorasi pelaminan soft gold."
+    }
+  ]
+}

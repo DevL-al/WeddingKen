@@ -1,0 +1,13 @@
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+.pub-cache/
+.pub/
+build/
+android/.gradle/
+android/app/google-services.json
+lib/firebase_options.dart.bak
+*.iml
+.idea/
+.vscode/

@@ -1,0 +1,77 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!--
+    ══════════════════════════════════════════════════════════
+    IZIN AKSES GALERI & KAMERA (wajib untuk image_picker)
+    ══════════════════════════════════════════════════════════
+
+    Kenapa butuh 2 izin?
+    → Android 13 ke atas  : pakai READ_MEDIA_IMAGES
+    → Android 12 ke bawah : pakai READ_EXTERNAL_STORAGE
+    Flutter otomatis pilih yang sesuai versi Android HP-nya.
+    -->
+
+    <!-- Untuk Android 13+ (HP baru) -->
+    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
+
+    <!-- Untuk Android 12 ke bawah (HP lama), maxSdkVersion="32" artinya hanya aktif di Android 12 ke bawah, tidak bentrok dengan yang atas -->
+    <uses-permission
+        android:name="android.permission.READ_EXTERNAL_STORAGE"
+        android:maxSdkVersion="32" />
+
+    <!-- Izin kamera (jika mau foto langsung dari kamera, bukan galeri) -->
+    <uses-permission android:name="android.permission.CAMERA" />
+
+    <!-- Izin internet (wajib untuk upload ke Cloudinary) -->
+    <uses-permission android:name="android.permission.INTERNET" />
+
+    <application
+        android:label="weddingken"
+        android:name="${applicationName}"
+        android:icon="@mipmap/ic_launcher">
+
+        <activity
+            android:name=".MainActivity"
+            android:exported="true"
+            android:launchMode="singleTop"
+            android:taskAffinity=""
+            android:theme="@style/LaunchTheme"
+            android:configChanges="orientation|keyboardHidden|keyboard|screenSize|smallestScreenSize|locale|layoutDirection|fontScale|screenLayout|density|uiMode"
+            android:hardwareAccelerated="true"
+            android:windowSoftInputMode="adjustResize">
+
+            <meta-data
+                android:name="io.flutter.embedding.android.NormalTheme"
+                android:resource="@style/NormalTheme" />
+
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <!-- Don't delete the meta-data below This is used by the Flutter tool to generate GeneratedPluginRegistrant.java -->
+        <meta-data
+            android:name="flutterEmbedding"
+            android:value="2" />
+    </application>
+
+    <queries>
+        <intent>
+            <action android:name="android.intent.action.PROCESS_TEXT" />
+            <data android:mimeType="text/plain" />
+        </intent>
+
+        <!--
+        Izin untuk membuka aplikasi galeri/file manager pihak ketiga.
+        Tanpa ini, di beberapa HP (Samsung, Xiaomi) tombol galeri tidak bereaksi.
+        -->
+        <intent>
+            <action android:name="android.intent.action.GET_CONTENT" />
+        </intent>
+        <intent>
+            <action android:name="android.media.action.IMAGE_CAPTURE" />
+        </intent>
+    </queries>
+
+</manifest>
