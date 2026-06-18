@@ -1,3 +1,18 @@
+// ============================================================
+// HALAMAN ADMIN — VERIFIKASI PEMBAYARAN
+// ============================================================
+// Admin melihat semua bukti transfer yang dikirim customer,
+// lalu mencocokkan dengan mutasi rekening dan memverifikasi.
+//
+// Alur verifikasi:
+//   1. Customer mengirim bukti transfer → status = 'Menunggu Verifikasi'
+//   2. Admin membuka halaman ini, lihat bukti foto transfer
+//   3. Admin tekan tombol "Verifikasi" → muncul sheet bawah
+//   4. Admin pilih "Konfirmasi" atau "Tolak" + isi catatan (opsional)
+//   5. Jika Konfirmasi → status pembayaran = 'Lunas', status booking = 'Dikonfirmasi'
+//      Jika Tolak → status pembayaran = 'Pembayaran Ditolak'
+// ============================================================
+
 import 'package:flutter/material.dart';
 
 import '../../../core/responsive/responsive.dart';
@@ -21,11 +36,13 @@ class AdminPaymentsPage extends StatelessWidget {
     return Scaffold(
       appBar: const _GradientAppBar(title: 'Verifikasi Pembayaran'),
       body: AnimatedPage(
+        // StreamBuilder: tampilan otomatis update saat data pembayaran berubah
         child: StreamBuilder<List<PaymentModel>>(
           stream: DatabaseService.instance.paymentsStream(),
           builder: (context, snapshot) {
             if (!snapshot.hasData) return const LoadingView();
             final payments = snapshot.data!;
+
             if (payments.isEmpty) {
               return const EmptyState(
                 title: 'Belum ada pembayaran',
@@ -39,6 +56,7 @@ class AdminPaymentsPage extends StatelessWidget {
                 Responsive.horizontalPadding(context), 14,
                 Responsive.horizontalPadding(context), 24,
               ),
+              // +1 karena index 0 dipakai untuk SectionTitle
               itemCount: payments.length + 1,
               separatorBuilder: (_, __) => const SizedBox(height: 12),
               itemBuilder: (context, index) {
@@ -50,6 +68,7 @@ class AdminPaymentsPage extends StatelessWidget {
                   );
                 }
                 final payment = payments[index - 1];
+                // Kartu pembayaran dengan tombol "Verifikasi"
                 return _PaymentCard(
                   payment: payment,
                   onVerify: () => _openVerifySheet(context, payment),
@@ -62,6 +81,8 @@ class AdminPaymentsPage extends StatelessWidget {
     );
   }
 
+  // Fungsi ini dipanggil saat admin menekan tombol "Verifikasi" di kartu.
+  // Membuka bottom sheet untuk menerima atau menolak pembayaran.
   void _openVerifySheet(BuildContext context, PaymentModel payment) {
     showModalBottomSheet(
       context: context,
@@ -72,6 +93,7 @@ class AdminPaymentsPage extends StatelessWidget {
   }
 }
 
+// AppBar bergradien khusus halaman pembayaran
 class _GradientAppBar extends StatelessWidget implements PreferredSizeWidget {
   const _GradientAppBar({required this.title});
   final String title;
@@ -93,18 +115,18 @@ class _GradientAppBar extends StatelessWidget implements PreferredSizeWidget {
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Card pembayaran — menampilkan info customer, nominal, metode, bukti foto
-// ─────────────────────────────────────────────────────────────────────────────
-
+// ── Kartu satu data pembayaran ────────────────────────────────────────────────
+// Menampilkan: nama customer, tanggal, status, nominal, metode bayar,
+// foto bukti transfer (bisa di-tap untuk perbesar), dan tombol "Verifikasi"
 class _PaymentCard extends StatelessWidget {
   const _PaymentCard({required this.payment, required this.onVerify});
 
   final PaymentModel payment;
-  final VoidCallback onVerify;
+  final VoidCallback onVerify; // dipanggil saat tombol "Verifikasi" ditekan
 
   @override
   Widget build(BuildContext context) {
+    // Tombol "Verifikasi" hanya muncul jika status masih menunggu
     final pending = payment.status == 'Menunggu Verifikasi';
 
     return Card(
@@ -113,7 +135,7 @@ class _PaymentCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Header: nama + status
+            // ── Header: nama customer + tanggal + badge status ────────────────
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -134,12 +156,13 @@ class _PaymentCard extends StatelessWidget {
                     ],
                   ),
                 ),
+                // Badge status pembayaran (misal: "Menunggu Verifikasi", "Diterima")
                 StatusChip(label: payment.status),
               ],
             ),
             const SizedBox(height: 14),
 
-            // Nominal + metode
+            // ── Box nominal & metode pembayaran ───────────────────────────────
             Container(
               padding: const EdgeInsets.all(14),
               decoration: BoxDecoration(
@@ -160,6 +183,7 @@ class _PaymentCard extends StatelessWidget {
                                 fontWeight: FontWeight.w700,
                                 letterSpacing: 0.6)),
                         const SizedBox(height: 3),
+                        // Nominal yang harus dibayar (DP 30%)
                         Text(CurrencyFormatter.rupiah(payment.amount),
                             style: const TextStyle(
                                 color: AppColors.mocha,
@@ -168,9 +192,10 @@ class _PaymentCard extends StatelessWidget {
                       ],
                     ),
                   ),
+                  // Badge metode pembayaran (misal: BCA, GoPay)
                   Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 12, vertical: 8),
                     decoration: BoxDecoration(
                       color: AppColors.mocha,
                       borderRadius: BorderRadius.circular(12),
@@ -186,7 +211,8 @@ class _PaymentCard extends StatelessWidget {
             ),
             const SizedBox(height: 12),
 
-            // Bukti transfer (gambar)
+            // ── Foto bukti transfer ───────────────────────────────────────────
+            // Tap foto → buka dialog full-screen untuk memperbesar
             if (payment.proofImageUrl.isNotEmpty) ...[
               const Text('BUKTI TRANSFER',
                   style: TextStyle(
@@ -204,6 +230,7 @@ class _PaymentCard extends StatelessWidget {
                     height: 180,
                     width: double.infinity,
                     fit: BoxFit.cover,
+                    // Tampilkan spinner saat gambar sedang dimuat
                     loadingBuilder: (_, child, progress) {
                       if (progress == null) return child;
                       return Container(
@@ -213,7 +240,8 @@ class _PaymentCard extends StatelessWidget {
                           color: AppColors.cream,
                           borderRadius: BorderRadius.circular(14),
                         ),
-                        child: const CircularProgressIndicator(strokeWidth: 2),
+                        child: const CircularProgressIndicator(
+                            strokeWidth: 2),
                       );
                     },
                     errorBuilder: (_, __, ___) => Container(
@@ -230,26 +258,31 @@ class _PaymentCard extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 6),
-              Text('Tap gambar untuk memperbesar',
-                  style: TextStyle(
-                      color: AppColors.muted.withOpacity(0.7), fontSize: 11)),
+              Text(
+                'Tap gambar untuk memperbesar',
+                style: TextStyle(
+                    color: AppColors.muted.withOpacity(0.7), fontSize: 11),
+              ),
               const SizedBox(height: 12),
             ],
 
-            // Catatan admin (jika ada)
+            // ── Catatan admin (jika sudah diisi sebelumnya) ───────────────────
             if (payment.adminNote.isNotEmpty) ...[
-              Text('Catatan admin: ${payment.adminNote}',
-                  style: const TextStyle(
-                      color: AppColors.muted, height: 1.35, fontSize: 13)),
+              Text(
+                'Catatan admin: ${payment.adminNote}',
+                style: const TextStyle(
+                    color: AppColors.muted, height: 1.35, fontSize: 13),
+              ),
               const SizedBox(height: 12),
             ],
 
-            // Tombol verifikasi (hanya untuk yang pending)
+            // ── Tombol "Verifikasi" ────────────────────────────────────────────
+            // Hanya muncul jika pembayaran masih berstatus 'Menunggu Verifikasi'
             if (pending)
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton.icon(
-                  onPressed: onVerify,
+                  onPressed: onVerify, // buka sheet verifikasi
                   icon: const Icon(Icons.fact_check_outlined, size: 18),
                   label: const Text('Verifikasi'),
                 ),
@@ -260,6 +293,7 @@ class _PaymentCard extends StatelessWidget {
     );
   }
 
+  // Buka dialog full-screen untuk melihat foto bukti transfer lebih jelas
   void _showFullImage(BuildContext context, String url) {
     showDialog(
       context: context,
@@ -271,10 +305,12 @@ class _PaymentCard extends StatelessWidget {
           children: [
             ClipRRect(
               borderRadius: BorderRadius.circular(16),
+              // InteractiveViewer: bisa zoom dan pan foto
               child: InteractiveViewer(
                 child: Image.network(url, fit: BoxFit.contain),
               ),
             ),
+            // Tombol tutup (×) di pojok kanan atas
             Padding(
               padding: const EdgeInsets.all(8),
               child: CircleAvatar(
@@ -292,10 +328,12 @@ class _PaymentCard extends StatelessWidget {
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Bottom sheet verifikasi
-// ─────────────────────────────────────────────────────────────────────────────
-
+// ── Bottom Sheet Verifikasi Pembayaran ────────────────────────────────────────
+// Muncul saat admin menekan tombol "Verifikasi" di kartu pembayaran.
+// Admin memilih:
+//   - "Konfirmasi" → pembayaran diterima, booking dikonfirmasi
+//   - "Tolak"      → pembayaran ditolak, customer bisa kirim ulang
+// Dan bisa menambahkan catatan untuk customer.
 class VerifyPaymentSheet extends StatefulWidget {
   const VerifyPaymentSheet({super.key, required this.payment});
 
@@ -306,15 +344,17 @@ class VerifyPaymentSheet extends StatefulWidget {
 }
 
 class _VerifyPaymentSheetState extends State<VerifyPaymentSheet> {
-  final _note = TextEditingController();
-  String _status = 'Diterima';
+  final _note = TextEditingController(); // catatan admin (opsional)
+  String _status = 'Diterima'; // pilihan di SegmentedButton
   bool _loading = false;
 
   @override
   void initState() {
     super.initState();
+    // Isi catatan dari data sebelumnya jika sudah pernah diverifikasi
     _note.text = widget.payment.adminNote;
-    _status = widget.payment.status == 'Ditolak' ? 'Ditolak' : 'Diterima';
+    _status =
+        widget.payment.status == 'Ditolak' ? 'Ditolak' : 'Diterima';
   }
 
   @override
@@ -323,12 +363,14 @@ class _VerifyPaymentSheetState extends State<VerifyPaymentSheet> {
     super.dispose();
   }
 
+  // Fungsi ini dijalankan saat admin menekan tombol "Simpan".
+  // Kirim status verifikasi ke Firestore dan tutup sheet.
   Future<void> _submit() async {
     setState(() => _loading = true);
     try {
       await DatabaseService.instance.verifyPayment(
         payment: widget.payment,
-        status: _status,
+        status: _status,       // 'Diterima' atau 'Ditolak'
         adminNote: _note.text,
       );
       if (!mounted) return;
@@ -359,41 +401,53 @@ class _VerifyPaymentSheetState extends State<VerifyPaymentSheet> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
+            // Judul sheet
             Text('Verifikasi Pembayaran',
                 style: Theme.of(context)
                     .textTheme
                     .titleLarge
                     ?.copyWith(fontWeight: FontWeight.w900)),
             const SizedBox(height: 6),
+            // Info ringkas: nama customer, nominal, metode
             Text(
                 '${p.userName}  •  ${CurrencyFormatter.rupiah(p.amount)}  •  ${p.paymentMethod}'),
             const SizedBox(height: 16),
 
-            // Bukti kecil untuk referensi
+            // Tampilkan foto bukti kecil sebagai referensi saat memverifikasi
             if (p.proofImageUrl.isNotEmpty) ...[
               ClipRRect(
                 borderRadius: BorderRadius.circular(12),
-                child: Image.network(p.proofImageUrl,
-                    height: 120, width: double.infinity, fit: BoxFit.cover),
+                child: Image.network(
+                  p.proofImageUrl,
+                  height: 120,
+                  width: double.infinity,
+                  fit: BoxFit.cover,
+                ),
               ),
               const SizedBox(height: 14),
             ],
 
+            // SegmentedButton: pilih "Konfirmasi" atau "Tolak"
             SegmentedButton<String>(
               segments: const [
                 ButtonSegment(
-                    value: 'Diterima',
-                    label: Text('Konfirmasi'),
-                    icon: Icon(Icons.check)),
+                  value: 'Diterima',
+                  label: Text('Konfirmasi'),
+                  icon: Icon(Icons.check),
+                ),
                 ButtonSegment(
-                    value: 'Ditolak',
-                    label: Text('Tolak'),
-                    icon: Icon(Icons.close)),
+                  value: 'Ditolak',
+                  label: Text('Tolak'),
+                  icon: Icon(Icons.close),
+                ),
               ],
               selected: {_status},
-              onSelectionChanged: (s) => setState(() => _status = s.first),
+              onSelectionChanged: (s) =>
+                  setState(() => _status = s.first),
             ),
             const SizedBox(height: 14),
+
+            // Field catatan admin (opsional — misal alasan penolakan)
             AppTextField(
               controller: _note,
               label: 'Catatan admin (opsional)',
@@ -401,6 +455,8 @@ class _VerifyPaymentSheetState extends State<VerifyPaymentSheet> {
               maxLines: 2,
             ),
             const SizedBox(height: 18),
+
+            // Tombol "Simpan" — nonaktif saat loading
             ElevatedButton(
               onPressed: _loading ? null : _submit,
               child: Text(_loading ? 'Menyimpan...' : 'Simpan'),

@@ -11,11 +11,6 @@ import '../models/gallery_item.dart';
 import '../models/package_model.dart';
 import '../models/payment_model.dart';
 
-// ─────────────────────────────────────────────────────────────────────────────
-// ⚠️ GANTI 2 BARIS INI DENGAN DATA CLOUDINARY KAMU
-// Cloud name: lihat di pojok kiri atas dashboard Cloudinary
-// Upload preset: yang kamu buat di Settings → Upload → Upload presets
-// ─────────────────────────────────────────────────────────────────────────────
 const _cloudinaryCloudName = 'dekbareux'; // contoh: 'dxyz123abc'
 const _cloudinaryUploadPreset = 'weddingken_payment'; // preset yang dibuat tadi
 
@@ -67,7 +62,7 @@ class DatabaseService {
         as String; // URL https yang bisa langsung ditampilkan
   }
 
-  // ── Packages ──────────────────────────────────────────────────────────────
+  // ── Packages ───
 
   Stream<List<PackageModel>> packagesStream({bool onlyActive = false}) {
     return _db.collection('packages').snapshots().map((snapshot) {
@@ -94,7 +89,7 @@ class DatabaseService {
     await _db.collection('packages').doc(id).delete();
   }
 
-  // ── Bookings ──────────────────────────────────────────────────────────────
+  // ── Bookings ───────
 
   Stream<List<BookingModel>> bookingsStream({String? userId}) {
     Query<Map<String, dynamic>> query = _db.collection('bookings');
@@ -153,7 +148,6 @@ class DatabaseService {
   /// simpan URL-nya ke Firestore, dan ubah status booking.
   ///
   /// PERUBAHAN dari versi lama:
-  ///   Lama → upload ke Firebase Storage (butuh Blaze plan)
   ///   Baru → upload ke Cloudinary (gratis selamanya)
   ///   Hasilnya sama: URL foto tersimpan di Firestore
   Future<void> createPayment({

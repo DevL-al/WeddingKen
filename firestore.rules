@@ -58,7 +58,18 @@ service cloud.firestore {
         && request.resource.data.paymentStatus == 'Belum Bayar';
 
       allow read: if signedIn() && (isAdmin() || resource.data.userId == request.auth.uid);
-      allow update, delete: if isAdmin();
+
+      allow update: if isAdmin()
+        || (
+          signedIn()
+          && resource.data.userId == request.auth.uid
+          && request.resource.data.paymentStatus == 'Menunggu Verifikasi'
+          && (resource.data.paymentStatus == 'Belum Bayar' || resource.data.paymentStatus == 'Pembayaran Ditolak')
+          && request.resource.data.status == resource.data.status
+          && request.resource.data.userId == resource.data.userId
+        );
+
+      allow delete: if isAdmin();
     }
 
     match /payments/{paymentId} {

@@ -1,3 +1,20 @@
+// ============================================================
+// HALAMAN GALERI WEDDING
+// ============================================================
+// Dipakai oleh Admin maupun Customer, dikontrol lewat parameter isAdmin.
+//
+// Mode Customer (isAdmin: false):
+//   - Hanya bisa melihat foto portofolio wedding
+//   - Bisa filter foto berdasarkan kategori
+//   - Tap foto → buka lightbox (full-screen viewer, bisa swipe & zoom)
+//
+// Mode Admin (isAdmin: true):
+//   - Semua fitur customer +
+//   - Tombol FAB "Tambah Foto" → buka _GalleryFormSheet (sheet bawah)
+//   - Tombol ikon Edit di tiap foto → buka _GalleryFormSheet untuk edit
+//   - Tombol ikon Hapus di tiap foto → dialog konfirmasi → hapus dari Firestore
+// ============================================================
+
 import 'package:flutter/material.dart';
 
 import '../../../core/responsive/responsive.dart';
@@ -12,32 +29,38 @@ import '../../../services/database_service.dart';
 
 class GalleryPage extends StatefulWidget {
   const GalleryPage({super.key, required this.isAdmin});
-  final bool isAdmin;
+  final bool isAdmin; // true = mode admin (ada tombol tambah/edit/hapus)
 
   @override
   State<GalleryPage> createState() => _GalleryPageState();
 }
 
 class _GalleryPageState extends State<GalleryPage> {
+  // Kategori yang sedang dipilih untuk filter foto (default: semua)
   String _selectedCategory = 'Semua';
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text('Galeri Wedding')),
+
+      // FAB "Tambah Foto" — hanya muncul jika mode admin
       floatingActionButton: widget.isAdmin
           ? FloatingActionButton.extended(
-              onPressed: () => _openSheet(context, null),
+              onPressed: () => _openSheet(context, null), // null = tambah baru
               icon: const Icon(Icons.add_photo_alternate_outlined),
               label: const Text('Tambah Foto'),
             )
           : null,
+
       body: AnimatedPage(
+        // StreamBuilder: tampilan otomatis update saat data galeri berubah
         child: StreamBuilder<List<GalleryItem>>(
           stream: DatabaseService.instance.galleryStream(),
           builder: (context, snapshot) {
             if (!snapshot.hasData) return const LoadingView();
             final all = snapshot.data!;
+
             if (all.isEmpty) {
               return const EmptyState(
                 title: 'Belum ada foto galeri',
@@ -46,6 +69,7 @@ class _GalleryPageState extends State<GalleryPage> {
               );
             }
 
+            // Filter foto sesuai kategori yang dipilih
             final filtered = _selectedCategory == 'Semua'
                 ? all
                 : all.where((i) => i.category == _selectedCategory).toList();
@@ -55,43 +79,63 @@ class _GalleryPageState extends State<GalleryPage> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    // Judul seksi dengan total foto
                     SectionTitle(
                       title: 'Portofolio Acara',
                       subtitle: '${all.length} foto tersedia',
                     ),
                     const SizedBox(height: 14),
 
-                    // ── Category filter chips ───────────────────────────
+                    // ── Chip filter kategori (scroll horizontal) ──────────────
+                    // Tap chip → filter foto berdasarkan kategori
                     SizedBox(
                       height: 44,
                       child: ListView.separated(
                         scrollDirection: Axis.horizontal,
-                        padding: const EdgeInsets.symmetric(horizontal: 2),
+                        padding:
+                            const EdgeInsets.symmetric(horizontal: 2),
                         physics: const BouncingScrollPhysics(),
                         itemCount: GalleryItem.categories.length,
-                        separatorBuilder: (_, __) => const SizedBox(width: 8),
+                        separatorBuilder: (_, __) =>
+                            const SizedBox(width: 8),
                         itemBuilder: (context, i) {
                           final cat = GalleryItem.categories[i];
                           final selected = cat == _selectedCategory;
                           return GestureDetector(
-                            onTap: () => setState(() => _selectedCategory = cat),
+                            // Tap chip → ubah kategori aktif
+                            onTap: () =>
+                                setState(() => _selectedCategory = cat),
                             child: AnimatedContainer(
                               duration: const Duration(milliseconds: 200),
-                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 16, vertical: 10),
                               decoration: BoxDecoration(
-                                color: selected ? AppColors.mocha : Colors.white,
+                                color: selected
+                                    ? AppColors.mocha
+                                    : Colors.white,
                                 borderRadius: BorderRadius.circular(999),
                                 border: Border.all(
-                                  color: selected ? AppColors.mocha : AppColors.border,
+                                  color: selected
+                                      ? AppColors.mocha
+                                      : AppColors.border,
                                 ),
                                 boxShadow: selected
-                                    ? [BoxShadow(color: AppColors.mocha.withOpacity(0.25), blurRadius: 8, offset: const Offset(0, 3))]
+                                    ? [
+                                        BoxShadow(
+                                          color: AppColors.mocha
+                                              .withOpacity(0.25),
+                                          blurRadius: 8,
+                                          offset: const Offset(0, 3),
+                                        )
+                                      ]
                                     : [],
                               ),
                               child: Text(
                                 cat,
                                 style: TextStyle(
-                                  color: selected ? Colors.white : AppColors.muted,
+                                  color: selected
+                                      ? Colors.white
+                                      : AppColors.muted,
                                   fontWeight: FontWeight.w600,
                                   fontSize: 13,
                                 ),
@@ -103,6 +147,7 @@ class _GalleryPageState extends State<GalleryPage> {
                     ),
                     const SizedBox(height: 14),
 
+                    // Tampilkan empty state jika tidak ada foto di kategori ini
                     if (filtered.isEmpty)
                       const EmptyState(
                         title: 'Tidak ada foto',
@@ -110,11 +155,14 @@ class _GalleryPageState extends State<GalleryPage> {
                         icon: Icons.filter_none_outlined,
                       )
                     else
+                      // Grid foto — jumlah kolom menyesuaikan ukuran layar
                       GridView.builder(
                         shrinkWrap: true,
                         physics: const NeverScrollableScrollPhysics(),
-                        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                          crossAxisCount: Responsive.gridColumns(context, mobile: 2, tablet: 3, desktop: 4),
+                        gridDelegate:
+                            SliverGridDelegateWithFixedCrossAxisCount(
+                          crossAxisCount: Responsive.gridColumns(context,
+                              mobile: 2, tablet: 3, desktop: 4),
                           crossAxisSpacing: 12,
                           mainAxisSpacing: 12,
                           childAspectRatio: 0.75,
@@ -124,9 +172,12 @@ class _GalleryPageState extends State<GalleryPage> {
                           return _GalleryCard(
                             item: filtered[index],
                             isAdmin: widget.isAdmin,
-                            allItems: filtered,
+                            allItems: filtered, // dipakai lightbox untuk swipe antar foto
                             index: index,
-                            onEdit: widget.isAdmin ? () => _openSheet(context, filtered[index]) : null,
+                            // Tombol edit hanya tersedia di mode admin
+                            onEdit: widget.isAdmin
+                                ? () => _openSheet(context, filtered[index])
+                                : null,
                           );
                         },
                       ),
@@ -141,6 +192,7 @@ class _GalleryPageState extends State<GalleryPage> {
     );
   }
 
+  // Buka bottom sheet untuk tambah foto baru (item = null) atau edit foto (item = data foto)
   void _openSheet(BuildContext context, GalleryItem? item) {
     showModalBottomSheet(
       context: context,
@@ -154,9 +206,9 @@ class _GalleryPageState extends State<GalleryPage> {
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Gallery card
-// ─────────────────────────────────────────────────────────────────────────────
+// ── Kartu satu foto galeri ────────────────────────────────────────────────────
+// Tap foto → buka lightbox fullscreen
+// Mode admin: ada tombol edit (pensil) & hapus (tempat sampah) di pojok foto
 class _GalleryCard extends StatelessWidget {
   const _GalleryCard({
     required this.item,
@@ -168,14 +220,14 @@ class _GalleryCard extends StatelessWidget {
 
   final GalleryItem item;
   final bool isAdmin;
-  final List<GalleryItem> allItems;
+  final List<GalleryItem> allItems; // semua foto di kategori aktif (untuk swipe di lightbox)
   final int index;
-  final VoidCallback? onEdit;
+  final VoidCallback? onEdit; // callback tombol edit (null di mode customer)
 
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
-      onTap: () => _openLightbox(context),
+      onTap: () => _openLightbox(context), // tap foto → buka lightbox
       child: Card(
         clipBehavior: Clip.antiAlias,
         child: Column(
@@ -185,6 +237,7 @@ class _GalleryCard extends StatelessWidget {
               child: Stack(
                 fit: StackFit.expand,
                 children: [
+                  // Foto utama dengan animasi Hero (transisi ke lightbox)
                   Hero(
                     tag: 'gallery_${item.id}',
                     child: Image.network(
@@ -192,50 +245,64 @@ class _GalleryCard extends StatelessWidget {
                       fit: BoxFit.cover,
                       errorBuilder: (_, __, ___) => Container(
                         color: AppColors.cream,
-                        child: const Icon(Icons.image_not_supported_outlined, color: AppColors.mocha, size: 32),
+                        child: const Icon(
+                          Icons.image_not_supported_outlined,
+                          color: AppColors.mocha,
+                          size: 32,
+                        ),
                       ),
                     ),
                   ),
-                  // Tap to expand hint
+
+                  // Ikon perbesar di pojok kanan bawah foto (hint untuk tap)
                   Positioned(
-                    bottom: 8,
-                    right: 8,
+                    bottom: 8, right: 8,
                     child: Container(
                       padding: const EdgeInsets.all(5),
                       decoration: BoxDecoration(
                         color: Colors.black.withOpacity(0.4),
                         borderRadius: BorderRadius.circular(8),
                       ),
-                      child: const Icon(Icons.open_in_full, size: 13, color: Colors.white),
+                      child: const Icon(Icons.open_in_full,
+                          size: 13, color: Colors.white),
                     ),
                   ),
-                  // Category badge
+
+                  // Badge kategori di pojok kiri atas foto
                   if (item.category.isNotEmpty)
                     Positioned(
-                      top: 8,
-                      left: 8,
+                      top: 8, left: 8,
                       child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 8, vertical: 4),
                         decoration: BoxDecoration(
                           color: Colors.black.withOpacity(0.45),
                           borderRadius: BorderRadius.circular(999),
                         ),
                         child: Text(
                           item.category,
-                          style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w600),
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 10,
+                            fontWeight: FontWeight.w600,
+                          ),
                         ),
                       ),
                     ),
-                  // Admin actions
+
+                  // Tombol admin (edit & hapus) di pojok kanan atas — hanya mode admin
                   if (isAdmin)
                     Positioned(
-                      top: 6,
-                      right: 6,
+                      top: 6, right: 6,
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          _AdminBtn(icon: Icons.edit_outlined, onTap: onEdit ?? () {}),
+                          // Tombol pensil → buka sheet edit foto
+                          _AdminBtn(
+                              icon: Icons.edit_outlined,
+                              onTap: onEdit ?? () {}),
                           const SizedBox(width: 5),
+                          // Tombol hapus → dialog konfirmasi → hapus dari Firestore
                           _AdminBtn(
                             icon: Icons.delete_outline,
                             onTap: () => _confirmDelete(context),
@@ -246,6 +313,8 @@ class _GalleryCard extends StatelessWidget {
                 ],
               ),
             ),
+
+            // Judul & caption foto di bawah gambar
             Padding(
               padding: const EdgeInsets.fromLTRB(10, 9, 10, 10),
               child: Column(
@@ -255,7 +324,10 @@ class _GalleryCard extends StatelessWidget {
                     item.title,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13, letterSpacing: -0.1),
+                    style: const TextStyle(
+                        fontWeight: FontWeight.w700,
+                        fontSize: 13,
+                        letterSpacing: -0.1),
                   ),
                   if (item.caption.isNotEmpty) ...[
                     const SizedBox(height: 2),
@@ -263,7 +335,10 @@ class _GalleryCard extends StatelessWidget {
                       item.caption,
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(color: AppColors.muted, fontSize: 11.5, height: 1.4),
+                      style: const TextStyle(
+                          color: AppColors.muted,
+                          fontSize: 11.5,
+                          height: 1.4),
                     ),
                   ],
                 ],
@@ -275,30 +350,40 @@ class _GalleryCard extends StatelessWidget {
     );
   }
 
+  // Buka lightbox (fullscreen viewer) dimulai dari foto yang di-tap
   void _openLightbox(BuildContext context) {
     Navigator.of(context).push(
       PageRouteBuilder(
         opaque: false,
         barrierColor: Colors.black87,
-        pageBuilder: (_, __, ___) => _Lightbox(items: allItems, initialIndex: index),
+        pageBuilder: (_, __, ___) =>
+            _Lightbox(items: allItems, initialIndex: index),
         transitionsBuilder: (_, anim, __, child) =>
             FadeTransition(opacity: anim, child: child),
       ),
     );
   }
 
+  // Dialog konfirmasi sebelum menghapus foto dari Firestore
   Future<void> _confirmDelete(BuildContext context) async {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (_) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        shape:
+            RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title: const Text('Hapus Foto?'),
         content: Text('Foto "${item.title}" akan dihapus permanen.'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Batal')),
+          // Tombol "Batal" → tutup dialog, tidak jadi hapus
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Batal'),
+          ),
+          // Tombol "Hapus" merah → konfirmasi hapus
           ElevatedButton(
             onPressed: () => Navigator.pop(context, true),
-            style: ElevatedButton.styleFrom(backgroundColor: AppColors.danger),
+            style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.danger),
             child: const Text('Hapus'),
           ),
         ],
@@ -310,6 +395,7 @@ class _GalleryCard extends StatelessWidget {
   }
 }
 
+// Tombol bulat kecil untuk aksi admin di atas foto (edit / hapus)
 class _AdminBtn extends StatelessWidget {
   const _AdminBtn({required this.icon, required this.onTap});
   final IconData icon;
@@ -324,7 +410,10 @@ class _AdminBtn extends StatelessWidget {
         decoration: BoxDecoration(
           color: Colors.white.withOpacity(0.9),
           borderRadius: BorderRadius.circular(8),
-          boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 4)],
+          boxShadow: [
+            BoxShadow(
+                color: Colors.black.withOpacity(0.1), blurRadius: 4)
+          ],
         ),
         child: Icon(icon, size: 16, color: AppColors.mocha),
       ),
@@ -332,13 +421,18 @@ class _AdminBtn extends StatelessWidget {
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Lightbox (fullscreen image viewer)
-// ─────────────────────────────────────────────────────────────────────────────
+// ── Lightbox — viewer foto fullscreen ────────────────────────────────────────
+// Dibuka saat user tap foto di grid galeri.
+// Fitur:
+//   - Swipe kiri/kanan untuk pindah foto
+//   - Zoom & pan dengan InteractiveViewer
+//   - Tombol panah prev/next
+//   - Tombol tutup (×) di pojok kiri atas
+//   - Caption & kategori di bagian bawah
 class _Lightbox extends StatefulWidget {
   const _Lightbox({required this.items, required this.initialIndex});
   final List<GalleryItem> items;
-  final int initialIndex;
+  final int initialIndex; // foto yang dibuka pertama kali
 
   @override
   State<_Lightbox> createState() => _LightboxState();
@@ -346,7 +440,7 @@ class _Lightbox extends StatefulWidget {
 
 class _LightboxState extends State<_Lightbox> {
   late final PageController _ctrl;
-  late int _current;
+  late int _current; // index foto yang sedang ditampilkan
 
   @override
   void initState() {
@@ -369,20 +463,24 @@ class _LightboxState extends State<_Lightbox> {
       backgroundColor: Colors.transparent,
       body: Stack(
         children: [
-          // PageView swipe
+          // Swipe kiri/kanan untuk pindah foto
           PageView.builder(
             controller: _ctrl,
             itemCount: widget.items.length,
             onPageChanged: (i) => setState(() => _current = i),
             itemBuilder: (context, i) {
               return InteractiveViewer(
+                // InteractiveViewer: bisa zoom & pan foto
                 child: Center(
                   child: Hero(
                     tag: 'gallery_${widget.items[i].id}',
                     child: Image.network(
                       widget.items[i].imageUrl,
                       fit: BoxFit.contain,
-                      errorBuilder: (_, __, ___) => const Icon(Icons.broken_image, color: Colors.white, size: 64),
+                      errorBuilder: (_, __, ___) => const Icon(
+                          Icons.broken_image,
+                          color: Colors.white,
+                          size: 64),
                     ),
                   ),
                 ),
@@ -390,32 +488,40 @@ class _LightboxState extends State<_Lightbox> {
             },
           ),
 
-          // Top bar
+          // ── Bar atas: tombol tutup (×) + counter foto ─────────────────────
           SafeArea(
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              padding: const EdgeInsets.symmetric(
+                  horizontal: 16, vertical: 8),
               child: Row(
                 children: [
+                  // Tombol tutup → kembali ke halaman galeri
                   IconButton(
                     onPressed: () => Navigator.pop(context),
                     icon: const Icon(Icons.close, color: Colors.white),
-                    style: IconButton.styleFrom(backgroundColor: Colors.black45),
+                    style: IconButton.styleFrom(
+                        backgroundColor: Colors.black45),
                   ),
                   const Spacer(),
+                  // Counter: "3 / 10" (foto ke berapa dari total)
                   Text(
                     '${_current + 1} / ${widget.items.length}',
-                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 14),
+                    style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w600,
+                        fontSize: 14),
                   ),
                 ],
               ),
             ),
           ),
 
-          // Bottom caption
+          // ── Caption & kategori di bagian bawah ───────────────────────────
           Positioned(
             left: 0, right: 0, bottom: 0,
             child: Container(
-              padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
+              padding:
+                  const EdgeInsets.fromLTRB(20, 16, 20, 32),
               decoration: const BoxDecoration(
                 gradient: LinearGradient(
                   begin: Alignment.bottomCenter,
@@ -430,46 +536,70 @@ class _LightboxState extends State<_Lightbox> {
                   if (item.category.isNotEmpty)
                     Container(
                       margin: const EdgeInsets.only(bottom: 6),
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 10, vertical: 4),
                       decoration: BoxDecoration(
                         color: Colors.white.withOpacity(0.15),
                         borderRadius: BorderRadius.circular(999),
                       ),
-                      child: Text(item.category, style: const TextStyle(color: Colors.white70, fontSize: 11, fontWeight: FontWeight.w600)),
+                      child: Text(item.category,
+                          style: const TextStyle(
+                              color: Colors.white70,
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600)),
                     ),
-                  Text(item.title, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 17, letterSpacing: -0.2)),
+                  Text(item.title,
+                      style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w700,
+                          fontSize: 17,
+                          letterSpacing: -0.2)),
                   if (item.caption.isNotEmpty) ...[
                     const SizedBox(height: 4),
-                    Text(item.caption, style: const TextStyle(color: Colors.white70, fontSize: 13, height: 1.4)),
+                    Text(item.caption,
+                        style: const TextStyle(
+                            color: Colors.white70,
+                            fontSize: 13,
+                            height: 1.4)),
                   ],
                 ],
               ),
             ),
           ),
 
-          // Prev/Next arrows
+          // ── Tombol panah prev/next ────────────────────────────────────────
           if (widget.items.length > 1) ...[
+            // Tombol panah kiri (prev) — hanya muncul jika bukan foto pertama
             if (_current > 0)
               Positioned(
-                left: 8,
-                top: 0, bottom: 0,
+                left: 8, top: 0, bottom: 0,
                 child: Center(
                   child: IconButton(
-                    onPressed: () => _ctrl.previousPage(duration: const Duration(milliseconds: 300), curve: Curves.easeOut),
-                    icon: const Icon(Icons.chevron_left, color: Colors.white, size: 32),
-                    style: IconButton.styleFrom(backgroundColor: Colors.black38),
+                    onPressed: () => _ctrl.previousPage(
+                      duration: const Duration(milliseconds: 300),
+                      curve: Curves.easeOut,
+                    ),
+                    icon: const Icon(Icons.chevron_left,
+                        color: Colors.white, size: 32),
+                    style: IconButton.styleFrom(
+                        backgroundColor: Colors.black38),
                   ),
                 ),
               ),
+            // Tombol panah kanan (next) — hanya muncul jika bukan foto terakhir
             if (_current < widget.items.length - 1)
               Positioned(
-                right: 8,
-                top: 0, bottom: 0,
+                right: 8, top: 0, bottom: 0,
                 child: Center(
                   child: IconButton(
-                    onPressed: () => _ctrl.nextPage(duration: const Duration(milliseconds: 300), curve: Curves.easeOut),
-                    icon: const Icon(Icons.chevron_right, color: Colors.white, size: 32),
-                    style: IconButton.styleFrom(backgroundColor: Colors.black38),
+                    onPressed: () => _ctrl.nextPage(
+                      duration: const Duration(milliseconds: 300),
+                      curve: Curves.easeOut,
+                    ),
+                    icon: const Icon(Icons.chevron_right,
+                        color: Colors.white, size: 32),
+                    style: IconButton.styleFrom(
+                        backgroundColor: Colors.black38),
                   ),
                 ),
               ),
@@ -480,12 +610,12 @@ class _LightboxState extends State<_Lightbox> {
   }
 }
 
-// ─────────────────────────
-// Add / Edit gallery sheet
-// ─────────────────────────
+// ── Bottom Sheet Form Galeri (Tambah / Edit Foto) ─────────────────────────────
+// Muncul dari bawah saat admin tekan FAB "Tambah Foto" atau ikon edit di kartu.
+// Field: Judul, URL gambar, Caption, Kategori (chip)
 class _GalleryFormSheet extends StatefulWidget {
   const _GalleryFormSheet({this.existing});
-  final GalleryItem? existing;
+  final GalleryItem? existing; // null = tambah baru, diisi = edit foto yang ada
 
   @override
   State<_GalleryFormSheet> createState() => _GalleryFormSheetState();
@@ -496,10 +626,13 @@ class _GalleryFormSheetState extends State<_GalleryFormSheet> {
   late final _title    = TextEditingController(text: widget.existing?.title    ?? '');
   late final _imageUrl = TextEditingController(text: widget.existing?.imageUrl ?? '');
   late final _caption  = TextEditingController(text: widget.existing?.caption  ?? '');
-  late String _category = widget.existing?.category.isEmpty ?? true ? 'Lainnya' : (widget.existing?.category ?? 'Lainnya');
+  late String _category =
+      widget.existing?.category.isEmpty ?? true
+          ? 'Lainnya'
+          : (widget.existing?.category ?? 'Lainnya');
   bool _loading = false;
 
-  bool get _isEdit => widget.existing != null;
+  bool get _isEdit => widget.existing != null; // true = mode edit
 
   @override
   void dispose() {
@@ -509,11 +642,14 @@ class _GalleryFormSheetState extends State<_GalleryFormSheet> {
     super.dispose();
   }
 
+  // Fungsi ini dijalankan saat admin menekan tombol "Tambah ke Galeri" atau "Simpan Perubahan".
+  // Validasi → simpan/update ke Firestore → tutup sheet.
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
     setState(() => _loading = true);
     try {
       if (_isEdit) {
+        // Mode edit → update data foto yang sudah ada
         await DatabaseService.instance.updateGalleryItem(
           id:       widget.existing!.id,
           title:    _title.text,
@@ -522,6 +658,7 @@ class _GalleryFormSheetState extends State<_GalleryFormSheet> {
           category: _category,
         );
       } else {
+        // Mode tambah → buat dokumen baru di Firestore
         await DatabaseService.instance.addGalleryItemFull(
           title:    _title.text,
           imageUrl: _imageUrl.text,
@@ -532,11 +669,16 @@ class _GalleryFormSheetState extends State<_GalleryFormSheet> {
       if (!mounted) return;
       Navigator.pop(context);
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(_isEdit ? 'Foto berhasil diperbarui.' : 'Foto berhasil ditambahkan.')),
+        SnackBar(
+          content: Text(_isEdit
+              ? 'Foto berhasil diperbarui.'
+              : 'Foto berhasil ditambahkan.'),
+        ),
       );
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Gagal: $e')));
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('Gagal: $e')));
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -558,36 +700,51 @@ class _GalleryFormSheetState extends State<_GalleryFormSheet> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
+              // Handle bar
               Center(
                 child: Container(
                   width: 40, height: 4,
                   margin: const EdgeInsets.only(bottom: 20),
-                  decoration: BoxDecoration(color: AppColors.border, borderRadius: BorderRadius.circular(999)),
+                  decoration: BoxDecoration(
+                    color: AppColors.border,
+                    borderRadius: BorderRadius.circular(999),
+                  ),
                 ),
               ),
+
+              // Judul sheet berbeda antara mode tambah & edit
               Text(
                 _isEdit ? 'Edit Foto Galeri' : 'Tambah Foto Galeri',
-                style: tt.titleLarge?.copyWith(fontWeight: FontWeight.w700, letterSpacing: -0.2),
+                style: tt.titleLarge?.copyWith(
+                    fontWeight: FontWeight.w700, letterSpacing: -0.2),
               ),
               const SizedBox(height: 4),
-              Text('Gunakan URL gambar publik.', style: tt.bodySmall?.copyWith(color: AppColors.muted)),
+              Text('Gunakan URL gambar publik.',
+                  style: tt.bodySmall?.copyWith(color: AppColors.muted)),
               const SizedBox(height: 20),
 
+              // Field: Judul Foto (wajib)
               AppTextField(
                 controller: _title,
                 label: 'Judul Foto',
                 icon: Icons.title,
-                validator: (v) => v == null || v.trim().isEmpty ? 'Judul wajib diisi' : null,
+                validator: (v) =>
+                    v == null || v.trim().isEmpty ? 'Judul wajib diisi' : null,
               ),
               const SizedBox(height: 12),
+
+              // Field: URL Gambar Publik (wajib, harus diawali http)
               AppTextField(
                 controller: _imageUrl,
                 label: 'URL Gambar Publik',
                 icon: Icons.image_outlined,
                 keyboardType: TextInputType.url,
-                validator: (v) => v == null || !v.startsWith('http') ? 'URL tidak valid' : null,
+                validator: (v) =>
+                    v == null || !v.startsWith('http') ? 'URL tidak valid' : null,
               ),
               const SizedBox(height: 12),
+
+              // Field: Caption (opsional, 2 baris)
               AppTextField(
                 controller: _caption,
                 label: 'Caption (opsional)',
@@ -596,21 +753,29 @@ class _GalleryFormSheetState extends State<_GalleryFormSheet> {
               ),
               const SizedBox(height: 14),
 
-              // Category picker
-              Text('Kategori', style: tt.bodySmall?.copyWith(color: AppColors.muted, fontWeight: FontWeight.w600, letterSpacing: 0.4)),
+              // Chip pemilih kategori — tap chip untuk memilih kategori
+              Text('Kategori',
+                  style: tt.bodySmall?.copyWith(
+                      color: AppColors.muted,
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: 0.4)),
               const SizedBox(height: 8),
               Wrap(
                 spacing: 8, runSpacing: 8,
+                // skip(1) = lewati "Semua" (hanya untuk filter, bukan kategori simpan)
                 children: GalleryItem.categories.skip(1).map((cat) {
                   final sel = cat == _category;
                   return GestureDetector(
                     onTap: () => setState(() => _category = cat),
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 14, vertical: 8),
                       decoration: BoxDecoration(
                         color: sel ? AppColors.champagne : Colors.white,
                         borderRadius: BorderRadius.circular(999),
-                        border: Border.all(color: sel ? AppColors.mocha : AppColors.border),
+                        border: Border.all(
+                          color: sel ? AppColors.mocha : AppColors.border,
+                        ),
                       ),
                       child: Text(
                         cat,
@@ -626,9 +791,12 @@ class _GalleryFormSheetState extends State<_GalleryFormSheet> {
               ),
 
               const SizedBox(height: 22),
+              // Tombol simpan — label berbeda antara mode tambah & edit
               ElevatedButton(
                 onPressed: _loading ? null : _submit,
-                child: Text(_loading ? 'Menyimpan…' : (_isEdit ? 'Simpan Perubahan' : 'Tambah ke Galeri')),
+                child: Text(_loading
+                    ? 'Menyimpan…'
+                    : (_isEdit ? 'Simpan Perubahan' : 'Tambah ke Galeri')),
               ),
             ],
           ),
