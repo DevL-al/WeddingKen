@@ -1,7 +1,7 @@
 import 'dart:typed_data';
 
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
-import 'package:image_picker/image_picker.dart';
 
 import '../../../core/responsive/responsive.dart';
 import '../../../core/theme/app_colors.dart';
@@ -144,10 +144,7 @@ class CustomerBookingsPage extends StatelessWidget {
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
 // AppBar gradient
-// ─────────────────────────────────────────────────────────────────────────────
-
 class _GradientAppBar extends StatelessWidget implements PreferredSizeWidget {
   const _GradientAppBar({required this.title});
   final String title;
@@ -169,10 +166,7 @@ class _GradientAppBar extends StatelessWidget implements PreferredSizeWidget {
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
 // Payment Sheet — pilih metode, upload bukti, kirim
-// ─────────────────────────────────────────────────────────────────────────────
-
 class PaymentSheet extends StatefulWidget {
   const PaymentSheet({super.key, required this.booking});
 
@@ -187,20 +181,40 @@ class _PaymentSheetState extends State<PaymentSheet> {
   Uint8List? _imageBytes;
   String? _imageName;
   bool _loading = false;
+  bool _pickingFile = false;
 
   Future<void> _pickImage() async {
-    final picker = ImagePicker();
-    final picked = await picker.pickImage(
-      source: ImageSource.gallery,
-      maxWidth: 1024,
-      imageQuality: 70,
-    );
-    if (picked == null) return;
-    final bytes = await picked.readAsBytes();
-    setState(() {
-      _imageBytes = bytes;
-      _imageName = picked.name;
-    });
+    // Mencegah tap dobel saat dialog file picker sedang dibuka/diproses.
+    if (_pickingFile) return;
+    setState(() => _pickingFile = true);
+    try {
+      final result = await FilePicker.platform.pickFiles(
+        type: FileType.image,
+        withData: true, // pastikan bytes langsung ke-load, penting untuk web
+      );
+      if (result == null || result.files.isEmpty) return;
+
+      final file = result.files.first;
+      if (file.bytes == null) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Gagal membaca file, coba pilih ulang.')),
+        );
+        return;
+      }
+
+      setState(() {
+        _imageBytes = file.bytes;
+        _imageName = file.name;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Gagal membuka pemilih file: $e')),
+      );
+    } finally {
+      if (mounted) setState(() => _pickingFile = false);
+    }
   }
 
   Future<void> _submit() async {
@@ -378,7 +392,7 @@ class _PaymentSheetState extends State<PaymentSheet> {
             const SizedBox(height: 8),
             InkWell(
               borderRadius: BorderRadius.circular(16),
-              onTap: _pickImage,
+              onTap: _pickingFile ? null : _pickImage,
               child: Container(
                 padding: const EdgeInsets.all(18),
                 decoration: BoxDecoration(
@@ -391,56 +405,67 @@ class _PaymentSheetState extends State<PaymentSheet> {
                     width: _imageBytes != null ? 1.5 : 1,
                   ),
                 ),
-                child: _imageBytes != null
-                    ? Column(
-                        children: [
-                          ClipRRect(
-                            borderRadius: BorderRadius.circular(12),
-                            child: Image.memory(
-                              _imageBytes!,
-                              height: 180,
-                              width: double.infinity,
-                              fit: BoxFit.cover,
-                            ),
+                child: _pickingFile
+                    ? const Padding(
+                        padding: EdgeInsets.symmetric(vertical: 18),
+                        child: Center(
+                          child: SizedBox(
+                            width: 22,
+                            height: 22,
+                            child: CircularProgressIndicator(strokeWidth: 2),
                           ),
-                          const SizedBox(height: 10),
-                          Row(
+                        ),
+                      )
+                    : _imageBytes != null
+                        ? Column(
                             children: [
-                              const Icon(Icons.check_circle_rounded,
-                                  color: AppColors.success, size: 18),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: Text(
-                                  _imageName ?? 'Bukti terpilih',
-                                  style: const TextStyle(
-                                      color: AppColors.muted, fontSize: 12.5),
-                                  overflow: TextOverflow.ellipsis,
+                              ClipRRect(
+                                borderRadius: BorderRadius.circular(12),
+                                child: Image.memory(
+                                  _imageBytes!,
+                                  height: 180,
+                                  width: double.infinity,
+                                  fit: BoxFit.cover,
                                 ),
                               ),
-                              TextButton(
-                                onPressed: _pickImage,
-                                child: const Text('Ganti'),
+                              const SizedBox(height: 10),
+                              Row(
+                                children: [
+                                  const Icon(Icons.check_circle_rounded,
+                                      color: AppColors.success, size: 18),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Text(
+                                      _imageName ?? 'Bukti terpilih',
+                                      style: const TextStyle(
+                                          color: AppColors.muted, fontSize: 12.5),
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                  TextButton(
+                                    onPressed: _pickImage,
+                                    child: const Text('Ganti'),
+                                  ),
+                                ],
                               ),
                             ],
+                          )
+                        : Column(
+                            children: const [
+                              Icon(Icons.cloud_upload_outlined,
+                                  size: 36, color: AppColors.muted),
+                              SizedBox(height: 8),
+                              Text('Tap untuk upload bukti transfer',
+                                  style: TextStyle(
+                                      color: AppColors.muted,
+                                      fontWeight: FontWeight.w600,
+                                      fontSize: 13.5)),
+                              SizedBox(height: 4),
+                              Text('Screenshot / foto struk transfer',
+                                  style: TextStyle(
+                                      color: AppColors.muted, fontSize: 12)),
+                            ],
                           ),
-                        ],
-                      )
-                    : Column(
-                        children: const [
-                          Icon(Icons.cloud_upload_outlined,
-                              size: 36, color: AppColors.muted),
-                          SizedBox(height: 8),
-                          Text('Tap untuk upload bukti transfer',
-                              style: TextStyle(
-                                  color: AppColors.muted,
-                                  fontWeight: FontWeight.w600,
-                                  fontSize: 13.5)),
-                          SizedBox(height: 4),
-                          Text('Screenshot / foto struk transfer',
-                              style: TextStyle(
-                                  color: AppColors.muted, fontSize: 12)),
-                        ],
-                      ),
               ),
             ),
             const SizedBox(height: 22),
